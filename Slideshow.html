@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+  <head>
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <meta name="author" content="Saevon">
+
+    <title>Slideshow</title>
+
+    <!-- Styles -->
+    <style>
+      /* Arrows */
+      .left-arrow, .right-arrow {
+        border: 50px solid transparent;
+        border-width: 50px;
+        width: 1px;
+        height: 1px;
+
+        position: absolute;
+        top: 50%;
+      }
+      .left-box, .right-box {
+        height: 100%;
+        width: 75px;
+
+        position: absolute;
+        top: 0;
+      }
+      .left-mask, .right-mask {
+        background: #DDDDDD;
+        opacity: .3;
+        width: 100%;
+        height: 100%;
+      }
+
+      .left-arrow {
+        border-right-color: #BBBBBB;
+        left: -40px;
+      }
+      .left-box {
+        left: 0;
+      }
+      .right-arrow {
+        border-left-color: #BBBBBB;
+        right: -40px;
+      }
+      .right-box {
+        right: 0;
+      }
+
+      .left-box, .right-box {
+        opacity: 0;
+      }
+      .left-box:hover, .right-box:hover {
+        opacity: 1;
+      }
+
+      /* Add Files Dialog */
+      #add-pics {
+        width: 50px;
+        height: 50px;
+
+        position: absolute;
+        top: 10px;
+        right: 15px;
+
+        visibility: hidden;
+      }
+      #add-pics::before {
+        content: "+";
+        visibility: visible;
+
+        font-size: 32px;
+        font-weight: bolder;
+        text-indent: 11px;
+
+        background: #BBBBBB;
+        width: 50px;
+        height: 50px;
+        border-radius: 100%;
+
+        position: absolute;
+        top: 0px;
+        right: 0px;
+      }
+
+
+
+    </style>
+
+    <!-- Scripts -->
+    <script type="text/javascript">
+      // Prep work and handy shortcuts
+      window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
+
+    </script>
+    <script type="text/javascript">
+      // DOM independent setup
+
+
+      ///////////////////////////////
+      // Notifications
+      var notify = function(message, level) {
+        // TODO
+      }
+
+
+      ///////////////////////////////
+      // Tabs
+
+      /*
+       * Changes the visible menu
+       */
+      var select_tab = function(tab) {
+        var elems = document.getElementsByClassName('tab');
+        for (var i = 0, elem; elem = elems[i]; i++) {
+          elem.hidden = true;
+        }
+
+        document.querySelector(tab).hidden = false;
+      }
+
+
+
+      ///////////////////////////////
+      // Picture manipulation
+
+      var pictures = [];
+      var index = 0;
+      var max = 0;
+
+      /*
+       * Updates the picture to the current index
+       */
+      var update_pic = function(change) {
+        index += change || 0;
+
+        // Check for boundaries
+        if (index < 0) {
+          notify('Reached beginning. Looping to the end', 'info');
+          index = max - 1;
+        } else if (index >= max) {
+          notify('Reached end. Looping to the beginning', 'info');
+          index = 0;
+        }
+
+        // Delete the old image
+        var elem = document.querySelector('.picture');
+        var img = elem.querySelector('img');
+        if (img) {
+          img.remove()
+        }
+
+        if (!pictures[index]) {
+          return;
+        }
+
+        // Add the new image
+        var img = document.createElement('img');
+        img.src = pictures[index].toURL();
+        elem.appendChild(img);
+      };
+
+      /*
+       * Adds a new picture to the end of the pictures list
+       */
+      var add_pic = function(entry) {
+        pictures.push(entry);
+        max++;
+      };
+
+
+
+      ///////////////////////////////
+      // Loading
+
+      // Loading Counter
+      var counter = 0;
+      var count = function(number) {
+        counter += number || 0;
+
+        var elem = document.querySelector('body');
+        if (counter) {
+          select_tab('.loader');
+        } else {
+          select_tab('.viewer');
+          // Reset the current picture
+          update_pic();
+        }
+      };
+
+
+
+      ///////////////////////////////
+      // File Manipulation
+
+      var filesystem = undefined;
+      var MB = 1024 * 1024;
+
+      var error_handler = function(event) {
+        var msg = '';
+
+        switch (event.code) {
+          case FileError.QUOTA_EXCEEDED_ERR:
+            msg = 'QUOTA_EXCEEDED_ERR';
+            break;
+          case FileError.NOT_FOUND_ERR:
+            msg = 'NOT_FOUND_ERR';
+            break;
+          case FileError.SECURITY_ERR:
+            msg = 'SECURITY_ERR';
+            break;
+          case FileError.INVALID_MODIFICATION_ERR:
+            msg = 'INVALID_MODIFICATION_ERR';
+            break;
+          case FileError.INVALID_STATE_ERR:
+            msg = 'INVALID_STATE_ERR';
+            break;
+          default:
+            msg = 'Unknown Error';
+            break;
+        };
+        console.log('Error: ' + msg);
+        notify('Error ' + msg, 'error');
+      };
+
+      window.requestFileSystem(window.TEMPORARY, 10 * MB,
+        function(fs) {
+          filesystem = fs;
+        },
+        error_handler
+      );
+
+      /*
+       * Copies the file into the local file system
+       */
+      var copy = function(file) {
+        return function(entry) {
+          entry.createWriter(function(writer) {
+            writer.write(file);
+            add_pic(entry);
+            count(-1);
+          }, error_handler);
+        };
+      };
+
+
+    </script>
+    <script type="text/javascript">
+      // Callbacks
+      window.onload = function() {
+        var read_files = function(event) {
+          document.body.classList.remove('starting');
+
+          var files = this.files;
+
+          // If the filesystem isn't loaded stop
+          if (filesystem === undefined) {
+            return;
+          }
+
+          // Copy all the files over to the filesystem
+          for (var i = 0, file; file = files[i]; i++) {
+            count(+1);
+            filesystem.root.getFile(file.name, {create: true},
+              copy(file),
+              error_handler
+            );
+          }
+
+          // Reset the file dialog
+          this.value = '';
+        };
+
+        document.querySelector('#select-pics').onchange = read_files;
+        document.querySelector('#add-pics').onchange = read_files;
+
+        document.querySelector('.left-arrow').onclick = function(event) {
+          update_pic(-1);
+        };
+        document.querySelector('.right-arrow').onclick = function(event) {
+          update_pic(1);
+        };
+
+        var LEFT = 37;
+        var RIGHT = 39;
+
+        var keys = {
+          37: {
+            down: false,
+            repeat: false
+          },
+          39: {
+            down: false,
+            repeat: false
+          }
+        };
+        document.onkeydown = function(event) {
+          if (!keys[event.which]) {
+            return;
+          }
+          keys[event.which]['down'] = true;
+        };
+        document.onkeyup = function(event) {
+          if (!keys[event.which]) {
+            return;
+          }
+          if (!keys[event.which]['repeat']) {
+            update_pic(event.which == LEFT ? -1 : 1);
+          }
+
+          keys[event.which]['down'] = false;
+          keys[event.which]['repeat'] = false;
+        };
+
+        setInterval(function() {
+          if (keys[LEFT]['down']) {
+            update_pic(-1);
+            keys[LEFT]['repeat'] = true;
+          } else if (keys[RIGHT]['down']) {
+            update_pic(1);
+            keys[RIGHT]['repeat'] = true;
+          }
+        }, 500);
+      };
+
+
+
+    </script>
+
+
+  </head>
+  <body>
+    <div class="tab viewer" hidden>
+      <div class="picture"><img /></div>
+
+      <div class="left-box">
+        <div class="left-mask"></div>
+        <div class="left-arrow"></div>
+      </div>
+
+      <div class="right-box">
+        <div class="right-mask"></div>
+        <div class="right-arrow"></div>
+        <input type="file" multiple  id="add-pics" />
+      </div>
+    </div>
+
+    <div class="tab file-select">
+      <input type="file" multiple id="select-pics" />
+    </div>
+
+    <div class="tab loader" hidden>
+      Loading
+    </div>
+  </body>
+</html>
+
+
+
+
