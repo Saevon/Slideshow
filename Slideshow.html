@@ -23,7 +23,7 @@
         height: 100%;
         width: 75px;
 
-        position: absolute;
+        position: fixed;
         top: 0;
       }
       .left-mask, .right-mask {
@@ -67,7 +67,7 @@
         visibility: hidden;
       }
       #add-pics::before {
-        content: "+";
+        content: "";
         visibility: visible;
 
         font-size: 32px;
@@ -83,7 +83,21 @@
         top: 0px;
         right: 0px;
       }
+      .add-pics-cover {
+        font-size: 32px;
+        font-weight: bolder;
+        text-indent: 11px;
 
+        position: absolute;
+        top: 13px;
+        right: 31px;
+      }
+
+
+      /* General Styles */
+      body {
+        text-align: center;
+      }
 
 
     </style>
@@ -343,6 +357,7 @@
         <div class="right-mask"></div>
         <div class="right-arrow"></div>
         <input type="file" multiple  id="add-pics" />
+        <div class="add-pics-cover">+</div>
       </div>
     </div>
 
